@@ -4,9 +4,9 @@ class FrozenLakeVisualizer:
     def __init__(self, env):
         self.env = env
         self.colors = {
-            0: (173, 216, 230),      # frozen lake
-            -1: (255, 0, 0),      # holes
-            1: (0, 255, 0),      # frisbee
+            0: (173, 216, 230),    # frozen lake
+            -1: (255, 0, 0),       # holes
+            1: (0, 255, 0),        # frisbee
         }
         self.tile_size = 100
         self.screen_width = self.tile_size * self.env.size

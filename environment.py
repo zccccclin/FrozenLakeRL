@@ -3,19 +3,25 @@ import visualizer
 import util
 
 class FrozenLake:
-    def __init__(self, task=1, size=4, render=True):
-        self.task = task
-        self.size = size
+    ############################################################
+    #                     Initialization                       #
+    ############################################################
+    def __init__(self, task_num=1, map_size=4, render=False):
+        self.task = task_num
+        self.map_size = map_size
         self.visualize = render
         self.start_pos = (0,0)
-        self.goal_pos = (size-1,size-1)
+        self.goal_pos = (self.map_size-1,self.map_size-1)
 
         # Initialization
         self.map = self.generate_map()
-        self.action_space = np.array([[-1,0], # up
-                                      [1,0], # down
-                                      [0,-1], # left
-                                      [0,1]]) # right
+        self.action_space = {0:[-1,0], # up
+                             1:[1,0], # down
+                             2:[0,-1], # left
+                             3:[0,1]} # right
+        
+        self.n_action = len(self.action_space)
+        self.n_obs = self.map.size
         self.robot_pos = np.array(self.start_pos)        
         if self.visualize:
             self.visualizer = visualizer.FrozenLakeVisualizer(self)
@@ -54,21 +60,23 @@ class FrozenLake:
                         holes += 1
             return map
 
+    ############################################################
+    #                           Actions                        #
+    ############################################################
     def action_space_sample(self):
         np.random.seed()
-        action = self.action_space[np.random.randint(0,4)]
-        return action
+        return np.random.randint(0,4)
+
+    def pos_to_state(self, pos):
+        return pos[0]*self.size + pos[1]
 
     def reset(self):
         self.robot_pos = np.array(self.start_pos)
         return self.robot_pos
 
-    def render(self):
-        if self.visualize:
-            self.visualizer.draw(self.map, self.robot_pos)
-
     def step(self, action):
         # Move robot
+        action = self.action_space[action]
         self.robot_pos += action
 
         # Check if robot is out of bounds
@@ -85,4 +93,7 @@ class FrozenLake:
             return self.robot_pos, 1, True
 
         return self.robot_pos, 0, False
-                
+    
+    def render(self):
+        if self.visualize:
+            self.visualizer.draw(self.map, self.robot_pos)  
