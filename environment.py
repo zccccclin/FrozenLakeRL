@@ -20,8 +20,8 @@ class FrozenLake:
                              2:[0,-1], # left
                              3:[0,1]} # right
         
-        self.n_action = len(self.action_space)
-        self.n_obs = self.map.size
+        self.num_actions = len(self.action_space)
+        self.num_obs = self.map.size
         self.robot_pos = np.array(self.start_pos)        
         if self.visualize:
             self.visualizer = visualizer.FrozenLakeVisualizer(self)
@@ -41,16 +41,16 @@ class FrozenLake:
 
         # Task 2 with randomly generated hole location
         elif self.task == 2:
-            map = np.zeros((self.size,self.size))
+            map = np.zeros((self.map_size,self.map_size))
             map[-1][-1] = 1
-            holes = self.size*self.size//4
+            holes = self.map_size*self.map_size//4
             # set seed for reproducibility
             np.random.seed(999) 
             
             # add holes to map if its valid
             while holes > 0:
-                x = np.random.randint(0,self.size)
-                y = np.random.randint(0,self.size)
+                x = np.random.randint(0,self.map_size)
+                y = np.random.randint(0,self.map_size)
                 if map[x][y] == 0 and (x, y) != self.start_pos:
                     map[x][y] = -1
                     holes -= 1
@@ -68,7 +68,7 @@ class FrozenLake:
         return np.random.randint(0,4)
 
     def pos_to_state(self, pos):
-        return pos[0]*self.size + pos[1]
+        return pos[0]*self.map_size + pos[1]
 
     def reset(self):
         self.robot_pos = np.array(self.start_pos)
@@ -80,7 +80,7 @@ class FrozenLake:
         self.robot_pos += action
 
         # Check if robot is out of bounds
-        if self.robot_pos[0] < 0 or self.robot_pos[0] >= self.size or self.robot_pos[1] < 0 or self.robot_pos[1] >= self.size:
+        if self.robot_pos[0] < 0 or self.robot_pos[0] >= self.map_size or self.robot_pos[1] < 0 or self.robot_pos[1] >= self.map_size:
             self.robot_pos -= action
             return self.robot_pos, 0, False
 

@@ -18,9 +18,9 @@ class MonteCarloNoES:
         self.num_steps = num_steps
 
         # Initialize Q-table, Return table and visitation count table
-        self.Q = np.zeros([env.obs_space_size, env.action_space_size])
-        self.Return = np.zeros([env.obs_space_size, env.action_space_size])
-        self.N = np.zeros([env.obs_space_size, env.action_space_size])
+        self.Q = np.zeros([env.num_obs, env.num_actions])
+        self.Return = np.zeros([env.num_obs, env.num_actions])
+        self.N = np.zeros([env.num_obs, env.num_actions])
         print("Agent initialized")
         
     # e-Greedy Policy function
@@ -81,7 +81,7 @@ if __name__ == "__main__":
     env.reset()
 
     # Initialize Monte Carlo agent
-    agent = MonteCarloNoES(env, 0.99, 0.1, 10000, 100)
+    agent = MonteCarloNoES(env, 0.9, 0.1, 10000, 100)
 
     # Run agent
     Q = agent.run()
