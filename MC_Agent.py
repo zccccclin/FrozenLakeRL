@@ -2,14 +2,13 @@ import Environment as fl
 import numpy as np
 import matplotlib.pyplot as plt
 
-class MonteCarloNoES:
-    ############################################################
-    #                     Initialization                       #
-    ############################################################
+class MonteCarlo_Agent:
     def __init__(self, env, gamma, epsilon, num_episodes, num_steps):
         self.env = env
         self.rewards = 0
         self.avg_reward = []
+        self.train_success = []
+        self.test_success = []
 
         # Initialize hyperparameters
         self.gamma = gamma
@@ -23,14 +22,16 @@ class MonteCarloNoES:
         self.N = np.zeros([env.num_obs, env.num_actions])
         print("Agent initialized")
         
+        
     # e-Greedy Policy function
     def epsilon_greedy(self, state):
         if np.random.uniform(0, 1) < self.epsilon:
             return self.env.action_space_sample()
         else:
             return np.argmax(self.Q[state])
-        
-    def run(self):
+    
+    # Main function
+    def train(self):
         for eps in range(self.num_episodes):
             # Initialize episode
             state = self.env.reset()
@@ -45,6 +46,7 @@ class MonteCarloNoES:
                 action = self.epsilon_greedy(state)
                 # Take action
                 next_state, reward, done = self.env.step(action)
+                self.env.render()
                 # Store episode reward and State-Action pair
                 episode_rewards.append(reward)
                 state_action_pairs.append((state, action))
@@ -53,6 +55,10 @@ class MonteCarloNoES:
 
                 # If the episode is finished
                 if done:
+                    if reward == -1:
+                        self.train_success += [0]
+                    if reward == 1:
+                        self.train_success += [1]
                     G = 0
                     for t in range(len(state_action_pairs) - 1, -1, -1):
                         state_t, action_t = state_action_pairs[t]
@@ -65,29 +71,41 @@ class MonteCarloNoES:
 
                 # Update state
                 state = next_state
+            
+            # failed to reach frisbee within 100 steps
+            if not done:
+                self.train_success += [0]
 
             # calculate average reward
             self.rewards += sum(episode_rewards)
-            self.avg_reward.append(self.rewards/(eps+1))
-
+            avg_reward = self.rewards/(eps+1)
+            self.avg_reward.append(avg_reward)
             if eps % 1000 == 0:
-                print("Episode: ", eps, "Total reward: ", sum(episode_rewards))
-            
+                print("Episode: ", eps, "Avg reward: ", avg_reward)
+
+        # Data logging
+        train_succ = sum(self.train_success) / len(self.train_success)
+        print("Train success: ", self.train_success.count(1), "Train fail: ", self.train_success.count(0))
+        print("Training success rate: ", train_succ*100)    
         return self.Q
+    
+    def test(self, model):
+        self.Q = model
+
     
 if __name__ == "__main__":
     # Initialize environment
-    env = fl.FrozenLake(2, 10, False)
+    env = fl.FrozenLake(task_num=1, map_size=4, render=True)
     env.reset()
 
     # Initialize Monte Carlo agent
-    agent = MonteCarloNoES(env, 0.9, 0.1, 10000, 100)
+    agent = MonteCarlo_Agent(env, 0.9, 0.1, 10000, 100)
 
     # Run agent
-    Q = agent.run()
+    Q = agent.train()
 
     # Print Q-table
-    print(Q)
+    #print(Q)
 
     # Plot average reward
     plt.plot(agent.avg_reward)
