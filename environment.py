@@ -6,10 +6,9 @@ class FrozenLake:
     ############################################################
     #                     Initialization                       #
     ############################################################
-    def __init__(self, task_num=1, map_size=4, render=False):
+    def __init__(self, task_num=1, map_size=4):
         self.task = task_num
         self.map_size = map_size
-        self.visualize = render
         self.start_pos = (0,0)
         self.goal_pos = (self.map_size-1,self.map_size-1)
 
@@ -23,42 +22,8 @@ class FrozenLake:
         self.num_actions = len(self.action_space)
         self.num_obs = self.map.size
         self.robot_pos = np.array(self.start_pos)        
-        if self.visualize:
-            self.visualizer = visualizer.FrozenLakeVisualizer(self)
-            self.render()
+        self.visualizer = visualizer.FrozenLakeVisualizer(self.map_size)
         print("Environment initialized")
-    
-
-    # Generate map based on task 1 or task 2
-    def generate_map(self):
-        # Task 1 with fixed hole location
-        if self.task == 1:
-            return np.array([
-                [0,0,0,0],
-                [0,-1,0,-1],
-                [0,0,0,-1],
-                [-1,0,0,1]])
-
-        # Task 2 with randomly generated hole location
-        elif self.task == 2:
-            map = np.zeros((self.map_size,self.map_size))
-            map[-1][-1] = 1
-            holes = self.map_size*self.map_size//4
-            # set seed for reproducibility
-            np.random.seed(50) 
-            
-            # add holes to map if its valid
-            while holes > 0:
-                x = np.random.randint(0,self.map_size)
-                y = np.random.randint(0,self.map_size)
-                if map[x][y] == 0 and (x, y) != self.start_pos:
-                    map[x][y] = -1
-                    holes -= 1
-                    # Check if path is valid with BFS
-                    if not util.valid_path(map, self.start_pos, self.goal_pos):
-                        map[x][y] = 0
-                        holes += 1
-            return map
 
     ############################################################
     #                           Actions                        #
@@ -95,5 +60,59 @@ class FrozenLake:
         return self.robot_pos, 0, False
     
     def render(self):
-        if self.visualize:
-            self.visualizer.draw(self.map, self.robot_pos)  
+        self.visualizer.draw(self.map, self.robot_pos)  
+
+
+    ############################################################
+    #                    Helper Functions                      #
+    ############################################################
+    def savePolicyImage(self, Q, filename):
+        optimalPolicyMap = self.map.tolist()
+        actions = {1:"up", 2:"down", 3:"left", 4:"right"}
+        for i in range(self.map_size):
+            for j in range(self.map_size):
+                if self.map[i][j] == 0:
+                    state = Q[self.pos_to_state((i,j))]
+                    if np.all(state == 0):
+                        optimalPolicyMap[i][j] = 0
+                    else:
+                        optimalPolicyMap[i][j] = actions[np.argmax(state)+1]
+        self.visualizer.saveImage(optimalPolicyMap, filename)
+
+    def saveRouteImage(self, route, filename):
+        routeMap = self.map.tolist()
+        actions = {1:"up", 2:"down", 3:"left", 4:"right"}
+        for i in route:
+            routeMap[i[0][0]][i[0][1]] = actions[i[1]]
+        self.visualizer.saveImage(routeMap, filename)
+
+    # Generate map based on task 1 or task 2
+    def generate_map(self):
+        # Task 1 with fixed hole location
+        if self.task == 1:
+            return np.array([
+                [0,0,0,0],
+                [0,-1,0,-1],
+                [0,0,0,-1],
+                [-1,0,0,1]])
+
+        # Task 2 with randomly generated hole location
+        elif self.task == 2:
+            map = np.zeros((self.map_size,self.map_size))
+            map[-1][-1] = 1
+            holes = self.map_size*self.map_size//4
+            # set seed for reproducibility
+            np.random.seed(1) 
+            
+            # add holes to map if its valid
+            while holes > 0:
+                x = np.random.randint(0,self.map_size)
+                y = np.random.randint(0,self.map_size)
+                if map[x][y] == 0 and (x, y) != self.start_pos:
+                    map[x][y] = -1
+                    holes -= 1
+                    # Check if path is valid with BFS
+                    if not util.valid_path(map, self.start_pos, self.goal_pos):
+                        map[x][y] = 0
+                        holes += 1
+            return map

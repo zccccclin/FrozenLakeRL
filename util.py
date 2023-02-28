@@ -38,3 +38,11 @@ def valid_path(grid, start, goal):
     # If the goal position is not found, return false
     return False
 
+def epsilon_greedy(Q, state, epsilon, env):
+    if np.random.random() < epsilon:
+        return env.action_space_sample()
+    else:
+        return np.argmax(Q[state])
+
+def optimal_policy(Q, state):
+    return np.argmax(Q[state])
