@@ -36,6 +36,8 @@ class MonteCarlo_Agent:
         self.test_success_cnt = 0
         self.test_fail_cnt = 0
         self.test_route = []
+        self.DNF = 0
+        self.DNF_percent = []
         print("Agent initialized")
     
     # Main training function
@@ -44,9 +46,7 @@ class MonteCarlo_Agent:
             # Initialize episode
             state = self.env.reset()
             done = False
-            episode_rewards = []
-            state_action_pairs = []
-
+            episode = []
             # Loop over steps in the episode
             for step in range(self.num_steps):
                 state = self.env.pos_to_state(state)
@@ -57,25 +57,26 @@ class MonteCarlo_Agent:
                 if self.visualize:
                     self.env.render()
                 # Store episode reward and State-Action pair
-                episode_rewards.append(reward)
-                state_action_pairs.append((state, action))
-                # Update number of times each state-action pair has been visited
-                self.N[state][action] += 1
+                episode.append((state, action, reward))
 
                 # If the episode is finished
                 if done or step == self.num_steps - 1:
+                    state_action_pairs = [(s, a) for s, a, r in episode]
                     if reward <= 0:
                         self.train_fail_cnt += 1
                     if reward == 1:
                         self.train_success_cnt += 1
                     self.step_cnt += [step + 1]
+                    if step == self.num_steps - 1:
+                        self.DNF += 1
                     G = 0
-                    for t in range(len(state_action_pairs) - 1, -1, -1):
-                        state_t, action_t = state_action_pairs[t]
-                        G = self.gamma * G + episode_rewards[t]
+                    for t in range(len(episode) - 1, -1, -1):
+                        state_t, action_t, reward_t = episode[t]
+                        G = self.gamma * G + reward_t
                         # Check if state-action pair has been visited before
-                        if (state_t, action_t) not in state_action_pairs[:t]:
+                        if not (state_t, action_t) in state_action_pairs[:t]:  
                             self.Return[state_t][action_t] += G
+                            self.N[state_t][action_t] += 1
                             self.Q[state_t][action_t] = self.Return[state_t][action_t]/self.N[state_t][action_t]
                     break
                 # Update state
@@ -83,12 +84,13 @@ class MonteCarlo_Agent:
 
             # calculate average reward
             self.episode_cnt += [eps+1]
-            self.total_rewards += sum(episode_rewards)
+            self.DNF_percent += [self.DNF / (eps+1)]
+            self.total_rewards += reward
             self.rewards += [self.total_rewards]
             avg_reward = self.total_rewards/(eps+1)
             self.avg_reward.append(avg_reward)
             if (eps + 1) % 1000 == 0:
-                print("Episode: ", eps+1, "Avg reward: ", avg_reward)
+                print("Episode: ", eps+1, "Avg reward: ", avg_reward, "DNF percent: ", self.DNF/(eps+1))
 
         # Data logging
         train_succ_rate = self.train_success_cnt * 100 / self.num_episodes
@@ -118,10 +120,10 @@ class MonteCarlo_Agent:
                 if self.visualize:
                     self.env.render()
                 episode_rewards.append(reward)
-                if done:
-                    if reward == -1:
+                if done or step == self.num_steps - 1:
+                    if reward <= 0:
                         self.test_fail_cnt += 1
-                    if reward == 1:
+                    if reward > 0:
                         self.test_success_cnt += 1
                     self.step_cnt += [step+1]
                     if eps == 0:
@@ -129,10 +131,6 @@ class MonteCarlo_Agent:
                     self.test_route = []
                     break
                 pos = next_state
-            if not done:
-                self.test_fail_cnt += 1
-                self.step_cnt += [self.num_steps]
-                self.test_route = []
             
             # calculate average reward
             self.episode_cnt += [eps+1]
@@ -147,7 +145,7 @@ class MonteCarlo_Agent:
         print("Test success: ", self.test_success_cnt, "Test fail: ", self.test_fail_cnt)
         print("Test success rate: ", test_succ) 
 
-        
+
     def save(self, train_test="train"):
         log_folder = "Logging"
         model_folder = "Models"
@@ -195,9 +193,9 @@ class MonteCarlo_Agent:
         axs[1,0].set(xlabel="Episode", ylabel="Steps")
         axs[1,0].yaxis.set_major_formatter(FormatStrFormatter('%d'))
         # Plot cummulative reward vs episode
-        axs[1,1].plot(self.rewards)
-        axs[1,1].set_title("Cummulative reward vs Episode")
-        axs[1,1].set(xlabel="Episode", ylabel="Cummulative reward")
+        axs[1,1].plot(self.DNF_percent)
+        axs[1,1].set_title("DNF percent vs Episode")
+        axs[1,1].set(xlabel="Episode", ylabel="DNF Percent")
         plt.tight_layout(pad=0.5, w_pad=1, h_pad=1.0)
         plt.show()
         if not self.testing:

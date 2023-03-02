@@ -102,7 +102,7 @@ class FrozenLake:
             map[-1][-1] = 1
             holes = self.map_size*self.map_size//4
             # set seed for reproducibility
-            np.random.seed(1) 
+            np.random.seed(5) 
             
             # add holes to map if its valid
             while holes > 0:
