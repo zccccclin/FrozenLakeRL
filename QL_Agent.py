@@ -7,8 +7,8 @@ import os
 import argparse
 import pandas as pd
 
-class SARSA_Agent:
-    def __init__(self, env, lr, gamma, epsilon, num_episodes, num_steps, visualize=False, testing=False):
+class QL_Agent:
+    def __init__(self, env, lr, gamma, exp_r, num_episodes, num_steps, visualize=False, testing=False):
         self.env = env
         self.visualize = visualize
         self.testing = testing
@@ -17,8 +17,8 @@ class SARSA_Agent:
 
         # Initialize hyperparameters
         self.gamma = gamma
-        self.epsilon = epsilon
         self.lr = lr
+        self.exp_r = exp_r
 
         # Initialize Q-table
         self.Q = np.zeros([self.env.num_obs, self.env.num_actions])
@@ -46,42 +46,39 @@ class SARSA_Agent:
             episode_reward = 0
             pos = self.env.reset()
             state = self.env.pos_to_state(pos)
-            # Choose action from state using epsilon-greedy policy
-            action = util.epsilon_greedy(self.Q, state, self.epsilon, self.env)
-            
             for step in range(self.num_steps):
-                # Take action and observe reward and next state
+                action = util.epsilon_greedy(self.Q, state, self.exp_r, self.env)
                 next_pos, reward, done = self.env.step(action)
                 next_state = self.env.pos_to_state(next_pos)
+
                 episode_reward += reward
-                # Choose next action from next state using epsilon-greedy policy
-                next_action = util.epsilon_greedy(self.Q, next_state, self.epsilon, self.env)
+
                 # Update Q-table
-                self.Q[state, action] = self.Q[state, action] + self.lr * (reward + self.gamma * self.Q[next_state, next_action] - self.Q[state, action])
-                
+                self.Q[state, action] += self.lr * (reward + self.gamma * np.max(self.Q[next_state,:])) - self.Q[state, action]
+                                                    
                 # Visualize environment
                 if self.visualize:
                     self.env.render()
-
                 # Break if episode is done
                 if done or step == self.num_steps-1:
-                    if episode_reward <= 0:
+                    if reward < 0:
                         self.train_fail_cnt += 1
-                    else:
+                    if reward > 0:
                         self.train_success_cnt += 1
                     self.step_cnt += [step+1]
                     if step == self.num_steps - 1:
                         self.DNF += 1
                     break
 
-                # Update state and action
+                # Update state
                 state = next_state
-                action = next_action
+            
+            self.exp_r = self.exp_r * 0.99
 
             # calculate log data
             self.episode_cnt += [eps+1]
             self.DNF_percent += [self.DNF*100/(eps+1)]
-            self.total_rewards += episode_reward
+            self.total_rewards += (episode_reward / self.num_steps)
             self.rewards.append(self.total_rewards)
             self.avg_reward.append(self.total_rewards/(eps+1))
             if eps % 1000 == 0:
@@ -95,6 +92,7 @@ class SARSA_Agent:
         # Save data
         self.save("train")
         return self.Q
+
 
     def test(self, model_fname, test_num, visualize):
         self.test_num = test_num
@@ -149,23 +147,23 @@ class SARSA_Agent:
 
         if train_test == "train":
             # Save Q-table and image of optimal policy
-            trained_Q_fname = os.path.join(model_folder, "T{}_SARSA.npy".format(self.env.task))
-            policyImage_fname = os.path.join(log_folder, "T{}_SARSA_Policy.png".format(self.env.task))
+            trained_Q_fname = os.path.join(model_folder, "T{}_QL.npy".format(self.env.task))
+            policyImage_fname = os.path.join(log_folder, "T{}_QL_Policy.png".format(self.env.task))
             np.save(trained_Q_fname, self.Q)
             self.env.savePolicyImage(self.Q, policyImage_fname) 
             # Save training data
             name = ["Episode", "Avg Reward", "Steps", "Total Reward"]
             dictionary = {"Episode": self.episode_cnt, "Avg Reward": self.avg_reward, "Steps": self.step_cnt, "Total Reward": self.rewards}
             dataframe = pd.DataFrame(dictionary)
-            dataframe.to_csv(os.path.join(log_folder, "T{}_SARSA_Log.csv".format(self.env.task)), index=False, header=True)
+            dataframe.to_csv(os.path.join(log_folder, "T{}_QL_Log.csv".format(self.env.task)), index=False, header=True)
         elif train_test == "test":
             # Save route taken by agent
-            routeImage_fname = os.path.join(log_folder, "T{}_SARSA_Route.png".format(self.env.task))
+            routeImage_fname = os.path.join(log_folder, "T{}_QL_Route.png".format(self.env.task))
             self.env.saveRouteImage(self.test_route, routeImage_fname)
     
     def plot_results(self):
         fig, axs = plt.subplots(2,2)
-        fig.suptitle("Task {} SARSA {}".format(self.env.task, "Training" if not self.testing else "Test"))
+        fig.suptitle("Task {} QL {}".format(self.env.task, "Training" if not self.testing else "Test"))
         # Plot average reward vs episode
         axs[0,0].plot(self.avg_reward)
         axs[0,0].set_title("Average reward vs Episode".format(self.env.task))
@@ -203,15 +201,15 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--task", type=int, default=1)
     parser.add_argument("--map_size", type=int, default=4)
-    parser.add_argument("--lr", type=float, default=0.01)
+    parser.add_argument("--lr", type=float, default=0.25)
     parser.add_argument("--gamma", type=float, default=0.9)
-    parser.add_argument("--epsilon", type=float, default=0.1)
+    parser.add_argument("--exp_r", type=float, default=0.5)
     parser.add_argument("--num_episodes", type=int, default=10000)
     parser.add_argument("--num_steps", type=int, default=100)
     parser.add_argument("--visualize", type=bool, default=False)
     parser.add_argument("--test", type=bool, default=False)
     parser.add_argument("--test_num", type=int, default=100)
-    parser.add_argument("--model", type=str, default="T1_SARSA.npy")
+    parser.add_argument("--model", type=str, default="T1_QL.npy")
     args = parser.parse_args()
 
     # Initialize environment
@@ -219,7 +217,7 @@ if __name__ == "__main__":
     env.reset()
 
     # Initialize Monte Carlo agent
-    agent = SARSA_Agent(env, args.lr, args.gamma, args.epsilon, args.num_episodes, args.num_steps, visualize=args.visualize, testing=args.test)
+    agent = QL_Agent(env, args.lr, args.gamma, args.exp_r, args.num_episodes, args.num_steps, visualize=args.visualize, testing=args.test)
 
     # Run agent
     if not agent.testing:

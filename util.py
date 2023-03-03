@@ -42,6 +42,8 @@ def epsilon_greedy(Q, state, epsilon, env):
     if np.random.random() < epsilon:
         return env.action_space_sample()
     else:
+        # if np.all(Q[state] == 0):
+        #     return env.action_space_sample()
         return np.argmax(Q[state])
 
 def optimal_policy(Q, state):

@@ -1,4 +1,4 @@
-import Environment as fl
+import environment as fl
 import util
 import numpy as np
 import matplotlib.pyplot as plt
@@ -12,7 +12,6 @@ class MonteCarlo_Agent:
         self.env = env
         self.visualize = visualize
         self.testing = testing
-        self.test_num = 0
         self.num_episodes = num_episodes
         self.num_steps = num_steps
 
@@ -82,15 +81,15 @@ class MonteCarlo_Agent:
                 # Update state
                 state = next_state
 
-            # calculate average reward
+            # calculate logging data
             self.episode_cnt += [eps+1]
-            self.DNF_percent += [self.DNF / (eps+1)]
+            self.DNF_percent += [self.DNF *100/ (eps+1)]
             self.total_rewards += reward
             self.rewards += [self.total_rewards]
             avg_reward = self.total_rewards/(eps+1)
             self.avg_reward.append(avg_reward)
             if (eps + 1) % 1000 == 0:
-                print("Episode: ", eps+1, "Avg reward: ", avg_reward, "DNF percent: ", self.DNF/(eps+1))
+                print("Episode: ", eps+1, "Avg reward: ", avg_reward, "DNF percent: ", self.DNF_percent[-1])
 
         # Data logging
         train_succ_rate = self.train_success_cnt * 100 / self.num_episodes
@@ -216,7 +215,7 @@ if __name__ == "__main__":
     parser.add_argument("--num_steps", type=int, default=100)
     parser.add_argument("--visualize", type=bool, default=False)
     parser.add_argument("--test", type=bool, default=False)
-    parser.add_argument("--test_num", type=int, default=10)
+    parser.add_argument("--test_num", type=int, default=100)
     parser.add_argument("--model", type=str, default="T1_MC.npy")
     args = parser.parse_args()
 

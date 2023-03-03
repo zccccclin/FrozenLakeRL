@@ -1,6 +1,10 @@
 import numpy as np 
 import visualizer
 import util
+import os
+import pandas as pd
+import matplotlib.pyplot as plt
+from matplotlib.ticker import FormatStrFormatter
 
 class FrozenLake:
     ############################################################
