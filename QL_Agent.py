@@ -52,9 +52,8 @@ class QL_Agent:
                 next_state = self.env.pos_to_state(next_pos)
 
                 episode_reward += reward
-
                 # Update Q-table
-                self.Q[state, action] += self.lr * (reward + self.gamma * np.max(self.Q[next_state,:])) - self.Q[state, action]
+                self.Q[state, action] += self.lr * (reward + self.gamma * np.max(self.Q[next_state]) - self.Q[state, action])
                                                     
                 # Visualize environment
                 if self.visualize:
@@ -78,7 +77,7 @@ class QL_Agent:
             # calculate log data
             self.episode_cnt += [eps+1]
             self.DNF_percent += [self.DNF*100/(eps+1)]
-            self.total_rewards += (episode_reward / self.num_steps)
+            self.total_rewards += (episode_reward)
             self.rewards.append(self.total_rewards)
             self.avg_reward.append(self.total_rewards/(eps+1))
             if eps % 1000 == 0:
@@ -201,7 +200,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--task", type=int, default=1)
     parser.add_argument("--map_size", type=int, default=4)
-    parser.add_argument("--lr", type=float, default=0.25)
+    parser.add_argument("--lr", type=float, default=0.1)
     parser.add_argument("--gamma", type=float, default=0.9)
     parser.add_argument("--exp_r", type=float, default=0.5)
     parser.add_argument("--num_episodes", type=int, default=10000)

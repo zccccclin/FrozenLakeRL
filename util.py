@@ -39,12 +39,13 @@ def valid_path(grid, start, goal):
     return False
 
 def epsilon_greedy(Q, state, epsilon, env):
+    np.random.seed()
     if np.random.random() < epsilon:
         return env.action_space_sample()
     else:
-        # if np.all(Q[state] == 0):
-        #     return env.action_space_sample()
-        return np.argmax(Q[state])
+        # if there are multiple actions with the same max value, choose one of them randomly
+        randargmax = np.random.random(Q[state].shape) * (Q[state] == Q[state].max())
+        return np.argmax(randargmax)
 
 def optimal_policy(Q, state):
     return np.argmax(Q[state])
