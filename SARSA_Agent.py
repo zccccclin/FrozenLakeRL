@@ -64,7 +64,7 @@ class SARSA_Agent:
                     self.env.render()
 
                 # Break if episode is done
-                if done or step == self.num_steps-1:
+                if done:
                     if episode_reward <= 0:
                         self.train_fail_cnt += 1
                     else:
@@ -73,7 +73,11 @@ class SARSA_Agent:
                     if step == self.num_steps - 1:
                         self.DNF += 1
                     break
-
+                if step == self.num_steps-1:
+                    self.DNF += 1
+                    self.train_fail_cnt += 1
+                    self.step_cnt += [step+1]
+                    break
                 # Update state and action
                 state = next_state
                 action = next_action
@@ -139,10 +143,10 @@ class SARSA_Agent:
         print("Test success rate: ", test_succ) 
 
     def save(self, train_test="train"):
-        log_folder = "Logging"
+        log_folder = "Logging/SARSA"
         model_folder = "Models"
         if not os.path.exists(log_folder):
-            os.makedirs("Logging")
+            os.makedirs("Logging/SARSA")
         if not os.path.exists(model_folder):
             os.makedirs("Models")
         
@@ -191,9 +195,9 @@ class SARSA_Agent:
         plt.tight_layout(pad=0.5, w_pad=1, h_pad=1.0)
         plt.show()
         if not self.testing:
-            fig.savefig("Logging/T{}_MC_Train_Plot.png".format(self.env.task))
+            fig.savefig("Logging/SARSA/T{}_MC_Train_Plot.png".format(self.env.task))
         else:
-            fig.savefig("Logging/T{}_MC_Test_Plot.png".format(self.env.task))
+            fig.savefig("Logging/SARSA/T{}_MC_Test_Plot.png".format(self.env.task))
         plt.waitforbuttonpress(0)
         plt.close()
 

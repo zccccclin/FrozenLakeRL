@@ -59,15 +59,14 @@ class MonteCarlo_Agent:
                 episode.append((state, action, reward))
 
                 # If the episode is finished
-                if done or step == self.num_steps - 1:
+                if done:
                     state_action_pairs = [(s, a) for s, a, r in episode]
                     if reward <= 0:
                         self.train_fail_cnt += 1
                     if reward == 1:
                         self.train_success_cnt += 1
                     self.step_cnt += [step + 1]
-                    if step == self.num_steps - 1:
-                        self.DNF += 1
+
                     G = 0
                     for t in range(len(episode) - 1, -1, -1):
                         state_t, action_t, reward_t = episode[t]
@@ -78,6 +77,10 @@ class MonteCarlo_Agent:
                             self.N[state_t][action_t] += 1
                             self.Q[state_t][action_t] = self.Return[state_t][action_t]/self.N[state_t][action_t]
                     break
+                if step == self.num_steps - 1:
+                    self.train_fail_cnt += 1
+                    self.DNF += 1
+                    self.step_cnt += [step + 1]
                 # Update state
                 state = next_state
 
@@ -146,10 +149,10 @@ class MonteCarlo_Agent:
 
 
     def save(self, train_test="train"):
-        log_folder = "Logging"
+        log_folder = "Logging/MC"
         model_folder = "Models"
         if not os.path.exists(log_folder):
-            os.makedirs("Logging")
+            os.makedirs("Logging/MC")
         if not os.path.exists(model_folder):
             os.makedirs("Models")
         
@@ -187,20 +190,20 @@ class MonteCarlo_Agent:
             axs[0,1].bar(["Success", "Fail"], [self.test_success_cnt/self.test_num, self.test_fail_cnt/self.test_num], color=["green", "red"])
         axs[0,1].set(ylabel="Percentage")
         # Plot steps vs episode
-        axs[1,0].plot(self.step_cnt)
+        axs[1,0].scatter(self.episode_cnt,self.step_cnt, marker=".")
         axs[1,0].set_title("Steps vs Episode")
         axs[1,0].set(xlabel="Episode", ylabel="Steps")
         axs[1,0].yaxis.set_major_formatter(FormatStrFormatter('%d'))
-        # Plot cummulative reward vs episode
+        # Plot DNF vs episode
         axs[1,1].plot(self.DNF_percent)
         axs[1,1].set_title("DNF percent vs Episode")
         axs[1,1].set(xlabel="Episode", ylabel="DNF Percent")
         plt.tight_layout(pad=0.5, w_pad=1, h_pad=1.0)
         plt.show()
         if not self.testing:
-            fig.savefig("Logging/T{}_MC_Train_Plot.png".format(self.env.task))
+            fig.savefig("Logging/MC/T{}_MC_Train_Plot.png".format(self.env.task))
         else:
-            fig.savefig("Logging/T{}_MC_Test_Plot.png".format(self.env.task))
+            fig.savefig("Logging/MC/T{}_MC_Test_Plot.png".format(self.env.task))
         plt.waitforbuttonpress(0)
         plt.close()
 
@@ -233,7 +236,7 @@ if __name__ == "__main__":
         agent.test(args.model, args.test_num)
 
     # Print Q-table
-    #print(Q)
+    # print(Q)
 
     # Plot average reward
     agent.plot_results()
