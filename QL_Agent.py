@@ -59,19 +59,21 @@ class QL_Agent:
                 if self.visualize:
                     self.env.render()
                 # Break if episode is done
-                if done or step == self.num_steps-1:
+                if done:
                     if reward < 0:
                         self.train_fail_cnt += 1
                     if reward > 0:
                         self.train_success_cnt += 1
                     self.step_cnt += [step+1]
-                    if step == self.num_steps - 1:
-                        self.DNF += 1
                     break
-
+                if step == self.num_steps-1:
+                    self.train_fail_cnt += 1
+                    self.DNF += 1
+                    self.step_cnt += [step+1]
                 # Update state
                 state = next_state
             
+            # Update exploration rate
             self.exp_r = self.exp_r * 0.99
 
             # calculate log data
@@ -110,7 +112,7 @@ class QL_Agent:
                 if self.visualize:
                     self.env.render()
                 episode_rewards.append(reward)
-                if done or step == self.num_steps - 1:
+                if done:
                     if reward <= 0:
                         self.test_fail_cnt += 1
                     if reward > 0:
@@ -136,10 +138,10 @@ class QL_Agent:
         print("Test success rate: ", test_succ) 
 
     def save(self, train_test="train"):
-        log_folder = "Logging"
+        log_folder = "Logging/QL"
         model_folder = "Models"
         if not os.path.exists(log_folder):
-            os.makedirs("Logging")
+            os.makedirs("Logging/QL")
         if not os.path.exists(model_folder):
             os.makedirs("Models")
         
@@ -188,9 +190,9 @@ class QL_Agent:
         plt.tight_layout(pad=0.5, w_pad=1, h_pad=1.0)
         plt.show()
         if not self.testing:
-            fig.savefig("Logging/T{}_MC_Train_Plot.png".format(self.env.task))
+            fig.savefig("Logging/QL/T{}_MC_Train_Plot.png".format(self.env.task))
         else:
-            fig.savefig("Logging/T{}_MC_Test_Plot.png".format(self.env.task))
+            fig.savefig("Logging/QL/T{}_MC_Test_Plot.png".format(self.env.task))
         plt.waitforbuttonpress(0)
         plt.close()
 
