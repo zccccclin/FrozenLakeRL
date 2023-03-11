@@ -1,3 +1,4 @@
+
 # Frozen Lake Project
 
 This is a project to explore 3 reinforcemnet learning techniques applied to the frozen lake problem.
@@ -23,31 +24,25 @@ The problem involves a robot start at index (0,0) finding its way to goal index 
 *Models* folder contains the optimal policy models
 # Running the codes
 
-1. Monte Carlo without Exploring Start
-For 4x4 
-`python MC_Agent.py`
-For 10x10
-`python MC_Agent.py --task=2 --map_size=10`
-2. SARSA
-For 4x4 
-`python SARSA_Agent.py`
-For 10x10
-`python SARSA_Agent.py --task=2 --map_size=10`
-3. Q-Learning
-For 4x4 
-`python QL_Agent.py`
-For 10x10
-`python QL_Agent.py --task=2 --map_size=10`
+#### Monte Carlo without Exploring Start
+For 4x4: `python MC_Agent.py`
+For 10x10 :`python MC_Agent.py --task=2 --map_size=10`
+#### SARSA
+For 4x4: `python SARSA_Agent.py`
+For 10x10: `python SARSA_Agent.py --task=2 --map_size=10`
+#### Q-Learning
+For 4x4: `python QL_Agent.py`
+For 10x10: `python QL_Agent.py --task=2 --map_size=10`
 
 # Extra parameters
-Note the extra parameters that can be played with:
---gamma (sets the gamma value)
---epsilon (sets the epsilon)
---lr (sets the learning rate, only for SARSA and Q-Learning)
---decay (enable epsilon decay, must set --epsilon to initial epsilon)
---num_episodes (number of episodes)
---num_steps (maximum number of steps per episode)
---visualize (turn off or on visualization)
---test (to enable test mode, need to set --test_num and --model as well)
---test_num (number of test cases)
---model (model file name, place file in models folder first)
+##### Note the extra parameters that can be played with:
+1. `--gamma` (sets the gamma value)
+2. `--epsilon` (sets the epsilon)
+3. `--lr` (sets the learning rate, only for SARSA and Q-Learning)
+4. `--decay` (enable epsilon decay, must set --epsilon to initial epsilon)
+5. `--num_episodes` (number of episodes)
+6. `--num_steps` (maximum number of steps per episode)
+7. `--visualize` (turn off or on visualization)
+8. `--test` (to enable test mode, need to set --test_num and --model as well)
+9. `--test_num` (number of test cases)
+10. `--model` (model file name, place file in models folder first)
