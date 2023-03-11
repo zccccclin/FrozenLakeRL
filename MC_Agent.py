@@ -8,20 +8,23 @@ import argparse
 import pandas as pd
 
 class MonteCarlo_Agent:
-    def __init__(self, env, gamma, epsilon, num_episodes, num_steps, visualize=False, testing=False):
+    def __init__(self, env, gamma, epsilon, decay, num_episodes, num_steps, visualize=False, testing=False):
         self.env = env
         self.visualize = visualize
         self.testing = testing
+        self.decay = decay
         self.num_episodes = num_episodes
         self.num_steps = num_steps
+        np.random.seed(10)
 
         # Initialize hyperparameters
         self.gamma = gamma
         self.epsilon = epsilon
+        self.epsilon_initial = epsilon
 
         # Initialize Q-table, Return table and visitation count table
         self.Q = np.zeros((self.env.num_obs, self.env.num_actions))
-        self.Return = np.zeros([self.env.num_obs, self.env.num_actions])
+        self.R = np.zeros([self.env.num_obs, self.env.num_actions])
         self.N = np.zeros([self.env.num_obs, self.env.num_actions])
 
         # Logging variables
@@ -37,10 +40,12 @@ class MonteCarlo_Agent:
         self.test_route = []
         self.DNF = 0
         self.DNF_percent = []
+        self.first_goal_reached = False
         print("Agent initialized")
     
     # Main training function
     def train(self):
+        pos_reward = 0
         for eps in range(self.num_episodes):
             # Initialize episode
             state = self.env.reset()
@@ -64,6 +69,10 @@ class MonteCarlo_Agent:
                     if reward <= 0:
                         self.train_fail_cnt += 1
                     if reward == 1:
+                        pos_reward += 1
+                        if not self.first_goal_reached:
+                            print("First goal reached at episode: ", eps+1)
+                            self.first_goal_reached = True
                         self.train_success_cnt += 1
                     self.step_cnt += [step + 1]
 
@@ -73,9 +82,9 @@ class MonteCarlo_Agent:
                         G = self.gamma * G + reward_t
                         # Check if state-action pair has been visited before
                         if not (state_t, action_t) in state_action_pairs[:t]:  
-                            self.Return[state_t][action_t] += G
+                            self.R[state_t][action_t] += G
                             self.N[state_t][action_t] += 1
-                            self.Q[state_t][action_t] = self.Return[state_t][action_t]/self.N[state_t][action_t]
+                            self.Q[state_t][action_t] = self.R[state_t][action_t]/self.N[state_t][action_t]
                     break
                 if step == self.num_steps - 1:
                     self.train_fail_cnt += 1
@@ -83,6 +92,13 @@ class MonteCarlo_Agent:
                     self.step_cnt += [step + 1]
                 # Update state
                 state = next_state
+
+            # Update epsilon
+            if self.decay:
+                # linear decay
+                self.epsilon = self.epsilon_initial - self.epsilon_initial * ((eps+1)/self.num_episodes)
+                # exponential decay
+                #self.epsilon = self.epsilon_initial * np.exp(-0.001 * (eps+1))
 
             # calculate logging data
             self.episode_cnt += [eps+1]
@@ -213,8 +229,9 @@ if __name__ == "__main__":
     parser.add_argument("--task", type=int, default=1)
     parser.add_argument("--map_size", type=int, default=4)
     parser.add_argument("--gamma", type=float, default=0.9)
-    parser.add_argument("--epsilon", type=float, default=0.1)
-    parser.add_argument("--num_episodes", type=int, default=10000)
+    parser.add_argument("--epsilon", type=float, default=0.3)
+    parser.add_argument("--decay", type=bool, default=False)
+    parser.add_argument("--num_episodes", type=int, default=100000)
     parser.add_argument("--num_steps", type=int, default=100)
     parser.add_argument("--visualize", type=bool, default=False)
     parser.add_argument("--test", type=bool, default=False)
@@ -227,7 +244,7 @@ if __name__ == "__main__":
     env.reset()
 
     # Initialize Monte Carlo agent
-    agent = MonteCarlo_Agent(env, args.gamma, args.epsilon, args.num_episodes, args.num_steps, visualize=args.visualize, testing=args.test)
+    agent = MonteCarlo_Agent(env, args.gamma, args.epsilon, args.decay, args.num_episodes, args.num_steps, visualize=args.visualize, testing=args.test)
 
     # Run agent
     if not agent.testing:

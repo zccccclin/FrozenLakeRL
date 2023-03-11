@@ -8,7 +8,7 @@ import argparse
 import pandas as pd
 
 class QL_Agent:
-    def __init__(self, env, lr, gamma, exp_r, num_episodes, num_steps, visualize=False, testing=False):
+    def __init__(self, env, lr, gamma, epsilon, decay, num_episodes, num_steps, visualize=False, testing=False):
         self.env = env
         self.visualize = visualize
         self.testing = testing
@@ -18,7 +18,9 @@ class QL_Agent:
         # Initialize hyperparameters
         self.gamma = gamma
         self.lr = lr
-        self.exp_r = exp_r
+        self.epsilon = epsilon
+        self.decay = decay
+        self.epsilon_initial = epsilon
 
         # Initialize Q-table
         self.Q = np.zeros([self.env.num_obs, self.env.num_actions])
@@ -36,6 +38,8 @@ class QL_Agent:
         self.test_route = []
         self.DNF = 0
         self.DNF_percent = []
+        self.MSE_diff = []
+        self.first_goal_reached = False
         print("Agent initialized")
 
     # Main training function
@@ -47,7 +51,7 @@ class QL_Agent:
             pos = self.env.reset()
             state = self.env.pos_to_state(pos)
             for step in range(self.num_steps):
-                action = util.epsilon_greedy(self.Q, state, self.exp_r, self.env)
+                action = util.epsilon_greedy(self.Q, state, self.epsilon, self.env)
                 next_pos, reward, done = self.env.step(action)
                 next_state = self.env.pos_to_state(next_pos)
 
@@ -64,6 +68,9 @@ class QL_Agent:
                         self.train_fail_cnt += 1
                     if reward > 0:
                         self.train_success_cnt += 1
+                        if not self.first_goal_reached:
+                            print("First goal reached at episode: ", eps+1)
+                            self.first_goal_reached = True
                     self.step_cnt += [step+1]
                     break
                 if step == self.num_steps-1:
@@ -74,9 +81,15 @@ class QL_Agent:
                 state = next_state
             
             # Update exploration rate
-            self.exp_r = self.exp_r * 0.99
+            if self.decay:
+                # linear decay
+                #self.epsilon = self.epsilon_initial - self.epsilon_initial * ((eps+1)/self.num_episodes)
+                # exponential decay
+                self.epsilon = self.epsilon_initial * np.exp(-0.001 * (eps+1))
 
             # calculate log data
+            mse = np.sum(np.power(self.Q,2)) / (self.env.map.shape[0] * self.env.map.shape[1])
+            self.MSE_diff += [mse]
             self.episode_cnt += [eps+1]
             self.DNF_percent += [self.DNF*100/(eps+1)]
             self.total_rewards += (episode_reward)
@@ -85,6 +98,13 @@ class QL_Agent:
             if eps % 1000 == 0:
                 print("Episode: ", eps+1, "Average reward: ", self.avg_reward[-1], "DNF percent: ", self.DNF_percent[-1])
             
+            # Update epsilon
+            if self.decay:
+                # linear decay
+                #self.epsilon = self.epsilon_initial - self.epsilon_initial * ((eps+1)/self.num_episodes)
+                # exponential decay
+                self.epsilon = self.epsilon_initial * np.exp(-0.001 * (eps+1))
+
         # Data logging
         train_succ_rate = self.train_success_cnt * 100 / self.num_episodes
         print("Train success: ", self.train_success_cnt, "Train fail: ", self.train_fail_cnt)
@@ -131,7 +151,6 @@ class QL_Agent:
             avg_reward = self.total_rewards/(eps+1)
             self.avg_reward.append(avg_reward)
 
-        # Data logging
         print("Average reward: ", avg_reward)
         test_succ = self.test_success_cnt * 100 / test_num
         print("Test success: ", self.test_success_cnt, "Test fail: ", self.test_fail_cnt)
@@ -153,8 +172,8 @@ class QL_Agent:
             np.save(trained_Q_fname, self.Q)
             self.env.savePolicyImage(self.Q, policyImage_fname) 
             # Save training data
-            name = ["Episode", "Avg Reward", "Steps", "Total Reward"]
-            dictionary = {"Episode": self.episode_cnt, "Avg Reward": self.avg_reward, "Steps": self.step_cnt, "Total Reward": self.rewards}
+            name = ["Episode", "Avg Reward", "Steps", "Total Reward", "Q-MSE"]
+            dictionary = {"Episode": self.episode_cnt, "Avg Reward": self.avg_reward, "Steps": self.step_cnt, "Total Reward": self.rewards, "Q-MSE": self.MSE_diff}
             dataframe = pd.DataFrame(dictionary)
             dataframe.to_csv(os.path.join(log_folder, "T{}_QL_Log.csv".format(self.env.task)), index=False, header=True)
         elif train_test == "test":
@@ -179,7 +198,7 @@ class QL_Agent:
             axs[0,1].bar(["Success", "Fail"], [self.test_success_cnt/self.test_num, self.test_fail_cnt/self.test_num], color=["green", "red"])
         axs[0,1].set(ylabel="Percentage")
         # Plot steps vs episode
-        axs[1,0].plot(self.step_cnt)
+        axs[1,0].scatter(self.episode_cnt,self.step_cnt, marker=".")
         axs[1,0].set_title("Steps vs Episode")
         axs[1,0].set(xlabel="Episode", ylabel="Steps")
         axs[1,0].yaxis.set_major_formatter(FormatStrFormatter('%d'))
@@ -190,9 +209,9 @@ class QL_Agent:
         plt.tight_layout(pad=0.5, w_pad=1, h_pad=1.0)
         plt.show()
         if not self.testing:
-            fig.savefig("Logging/QL/T{}_MC_Train_Plot.png".format(self.env.task))
+            fig.savefig("Logging/QL/T{}_QL_Train_Plot.png".format(self.env.task))
         else:
-            fig.savefig("Logging/QL/T{}_MC_Test_Plot.png".format(self.env.task))
+            fig.savefig("Logging/QL/T{}_QL_Test_Plot.png".format(self.env.task))
         plt.waitforbuttonpress(0)
         plt.close()
 
@@ -202,9 +221,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--task", type=int, default=1)
     parser.add_argument("--map_size", type=int, default=4)
-    parser.add_argument("--lr", type=float, default=0.1)
+    parser.add_argument("--lr", type=float, default=0.01)
     parser.add_argument("--gamma", type=float, default=0.9)
-    parser.add_argument("--exp_r", type=float, default=0.5)
+    parser.add_argument("--epsilon", type=float, default=0.1)
+    parser.add_argument("--decay", type=bool, default=False )
     parser.add_argument("--num_episodes", type=int, default=10000)
     parser.add_argument("--num_steps", type=int, default=100)
     parser.add_argument("--visualize", type=bool, default=False)
@@ -218,7 +238,7 @@ if __name__ == "__main__":
     env.reset()
 
     # Initialize Monte Carlo agent
-    agent = QL_Agent(env, args.lr, args.gamma, args.exp_r, args.num_episodes, args.num_steps, visualize=args.visualize, testing=args.test)
+    agent = QL_Agent(env, args.lr, args.gamma, args.epsilon, args.decay, args.num_episodes, args.num_steps, visualize=args.visualize, testing=args.test)
 
     # Run agent
     if not agent.testing:

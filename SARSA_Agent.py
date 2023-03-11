@@ -8,17 +8,19 @@ import argparse
 import pandas as pd
 
 class SARSA_Agent:
-    def __init__(self, env, lr, gamma, epsilon, num_episodes, num_steps, visualize=False, testing=False):
+    def __init__(self, env, lr, gamma, epsilon, decay, num_episodes, num_steps, visualize=False, testing=False):
         self.env = env
         self.visualize = visualize
         self.testing = testing
         self.num_episodes = num_episodes
         self.num_steps = num_steps
+        self.decay = decay
 
         # Initialize hyperparameters
         self.gamma = gamma
         self.epsilon = epsilon
         self.lr = lr
+        self.epsilon_initial = epsilon
 
         # Initialize Q-table
         self.Q = np.zeros([self.env.num_obs, self.env.num_actions])
@@ -36,10 +38,13 @@ class SARSA_Agent:
         self.test_route = []
         self.DNF = 0
         self.DNF_percent = []
+        self.MSE_diff = []
+        self.first_goal_reached = False
         print("Agent initialized")
 
     # Main training function
     def train(self):
+        pos_reward = 0
         for eps in range(self.num_episodes):
             # Reset environment
             done = False
@@ -50,6 +55,7 @@ class SARSA_Agent:
             action = util.epsilon_greedy(self.Q, state, self.epsilon, self.env)
             
             for step in range(self.num_steps):
+                
                 # Take action and observe reward and next state
                 next_pos, reward, done = self.env.step(action)
                 next_state = self.env.pos_to_state(next_pos)
@@ -58,7 +64,7 @@ class SARSA_Agent:
                 next_action = util.epsilon_greedy(self.Q, next_state, self.epsilon, self.env)
                 # Update Q-table
                 self.Q[state, action] = self.Q[state, action] + self.lr * (reward + self.gamma * self.Q[next_state, next_action] - self.Q[state, action])
-                
+                    
                 # Visualize environment
                 if self.visualize:
                     self.env.render()
@@ -68,10 +74,19 @@ class SARSA_Agent:
                     if episode_reward <= 0:
                         self.train_fail_cnt += 1
                     else:
+                        pos_reward += 1
+                        if self.decay:
+                            # linear decay
+                            #self.epsilon = self.epsilon_initial - self.epsilon_initial * ((pos_reward)/5000)
+                            # exponential decay
+                            self.epsilon = self.epsilon_initial * np.exp(-0.001 * (pos_reward))
+                            print(self.epsilon)
+
                         self.train_success_cnt += 1
+                        if not self.first_goal_reached:
+                            print("First goal reached at episode: ", eps+1)
+                            self.first_goal_reached = True
                     self.step_cnt += [step+1]
-                    if step == self.num_steps - 1:
-                        self.DNF += 1
                     break
                 if step == self.num_steps-1:
                     self.DNF += 1
@@ -82,7 +97,10 @@ class SARSA_Agent:
                 state = next_state
                 action = next_action
 
+            
             # calculate log data
+            mse = np.sum(np.power(self.Q,2)) / (self.env.map.shape[0] * self.env.map.shape[1])
+            self.MSE_diff += [mse]
             self.episode_cnt += [eps+1]
             self.DNF_percent += [self.DNF*100/(eps+1)]
             self.total_rewards += episode_reward
@@ -90,7 +108,9 @@ class SARSA_Agent:
             self.avg_reward.append(self.total_rewards/(eps+1))
             if eps % 1000 == 0:
                 print("Episode: ", eps+1, "Average reward: ", self.avg_reward[-1], "DNF percent: ", self.DNF_percent[-1])
-            
+                    # Update epsilon
+
+
         # Data logging
         train_succ_rate = self.train_success_cnt * 100 / self.num_episodes
         print("Train success: ", self.train_success_cnt, "Train fail: ", self.train_fail_cnt)
@@ -158,8 +178,8 @@ class SARSA_Agent:
             np.save(trained_Q_fname, self.Q)
             self.env.savePolicyImage(self.Q, policyImage_fname) 
             # Save training data
-            name = ["Episode", "Avg Reward", "Steps", "Total Reward"]
-            dictionary = {"Episode": self.episode_cnt, "Avg Reward": self.avg_reward, "Steps": self.step_cnt, "Total Reward": self.rewards}
+            name = ["Episode", "Avg Reward", "Steps", "Total Reward", "Q-MSE"]
+            dictionary = {"Episode": self.episode_cnt, "Avg Reward": self.avg_reward, "Steps": self.step_cnt, "Total Reward": self.rewards, "Q-MSE": self.MSE_diff}
             dataframe = pd.DataFrame(dictionary)
             dataframe.to_csv(os.path.join(log_folder, "T{}_SARSA_Log.csv".format(self.env.task)), index=False, header=True)
         elif train_test == "test":
@@ -184,7 +204,7 @@ class SARSA_Agent:
             axs[0,1].bar(["Success", "Fail"], [self.test_success_cnt/self.test_num, self.test_fail_cnt/self.test_num], color=["green", "red"])
         axs[0,1].set(ylabel="Percentage")
         # Plot steps vs episode
-        axs[1,0].plot(self.step_cnt)
+        axs[1,0].scatter(self.episode_cnt,self.step_cnt, marker=".")
         axs[1,0].set_title("Steps vs Episode")
         axs[1,0].set(xlabel="Episode", ylabel="Steps")
         axs[1,0].yaxis.set_major_formatter(FormatStrFormatter('%d'))
@@ -195,9 +215,9 @@ class SARSA_Agent:
         plt.tight_layout(pad=0.5, w_pad=1, h_pad=1.0)
         plt.show()
         if not self.testing:
-            fig.savefig("Logging/SARSA/T{}_MC_Train_Plot.png".format(self.env.task))
+            fig.savefig("Logging/SARSA/T{}_SARSA_Train_Plot.png".format(self.env.task))
         else:
-            fig.savefig("Logging/SARSA/T{}_MC_Test_Plot.png".format(self.env.task))
+            fig.savefig("Logging/SARSA/T{}_SARSA_Test_Plot.png".format(self.env.task))
         plt.waitforbuttonpress(0)
         plt.close()
 
@@ -210,6 +230,7 @@ if __name__ == "__main__":
     parser.add_argument("--lr", type=float, default=0.01)
     parser.add_argument("--gamma", type=float, default=0.9)
     parser.add_argument("--epsilon", type=float, default=0.1)
+    parser.add_argument("--decay", type=bool, default=False)
     parser.add_argument("--num_episodes", type=int, default=10000)
     parser.add_argument("--num_steps", type=int, default=100)
     parser.add_argument("--visualize", type=bool, default=False)
@@ -223,7 +244,7 @@ if __name__ == "__main__":
     env.reset()
 
     # Initialize Monte Carlo agent
-    agent = SARSA_Agent(env, args.lr, args.gamma, args.epsilon, args.num_episodes, args.num_steps, visualize=args.visualize, testing=args.test)
+    agent = SARSA_Agent(env, args.lr, args.gamma, args.epsilon, args.decay, args.num_episodes, args.num_steps, visualize=args.visualize, testing=args.test)
 
     # Run agent
     if not agent.testing:
